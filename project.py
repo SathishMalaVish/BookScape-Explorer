@@ -263,55 +263,98 @@ elif menu == "**📊 Data Analysis**":
   queries = {
       "1. Check Availability of eBooks vs Physical Books":
           "SELECT CASE WHEN isEbook = 1 THEN 'eBooks' ELSE 'Physical Books' END AS Book_Type, COUNT(*) AS book_count FROM books GROUP BY isEbook;",
+
       "2. Find the Publisher with the Most Books Published":
           "SELECT publisher, COUNT(*) AS book_count FROM books WHERE publisher != 'N/A' GROUP BY publisher ORDER BY book_count DESC LIMIT 1;",
+
       "3. Identify the Publisher with the Highest Average Rating":
           "SELECT publisher, AVG(averageRating) AS avg_rating FROM books GROUP BY publisher ORDER BY avg_rating DESC LIMIT 1;",
+
       "4. Get the Top 5 Most Expensive Books by Retail Price":
           "SELECT booktitle, amountretailPrice, imageLinks FROM books ORDER BY amountretailPrice DESC LIMIT 5;",
+
       "5. Find Books Published After 2010 with at Least 500 Pages":
           "SELECT booktitle, imageLinks, pageCount, year FROM books WHERE year > 2010 AND pageCount >= 500;",
+
       "6. List Books with Discounts Greater than 20%":
-          """SELECT imageLinks, booktitle, (amountlistPrice - amountretailPrice) / amountlistPrice AS discount_percentage
-            FROM books WHERE
-            (amountlistPrice - amountretailPrice) / amountlistPrice > 0.02;""",
+          """SELECT imageLinks, booktitle, ROUND(((amountlistPrice - amountretailPrice) / amountlistPrice) * 100, 2) AS discount_percentage
+            FROM books
+            WHERE (amountlistPrice - amountretailPrice) / amountlistPrice > 0.21;""",
+
       "7. Find the Average Page Count for eBooks vs Physical Books":
           "SELECT CASE WHEN isEbook = 1 THEN 'eBooks' ELSE 'Physical Books' END AS Book_Type, AVG(pageCount) AS avg_page_count FROM books GROUP BY isEbook;",
+
       "8. Find the Top 3 Authors with the Most Books":
           "SELECT bookauthors, COUNT(*) AS book_count FROM books WHERE bookauthors != 'N/A' GROUP BY bookauthors ORDER BY book_count DESC LIMIT 3;",
+
       "9. List Publishers with More than 10 Books":
-          "SELECT publisher, COUNT(*) AS book_count FROM books WHERE publisher != 'N/A' GROUP BY publisher HAVING book_count > 10;",
+            """SELECT publisher,
+                  COUNT(*) AS book_count,
+                  GROUP_CONCAT(booktitle ORDER BY booktitle) AS book_titles
+            FROM books
+            WHERE publisher != 'N/A'
+            GROUP BY publisher
+            HAVING book_count > 10;""",
+
       "10. Find the Average Page Count for Each Category":
-          "SELECT categories, AVG(pageCount) AS avg_page_count FROM books WHERE categories != 'N/A' GROUP BY categories;",
+          "SELECT categories, AVG(pageCount) AS avg_page_count FROM books WHERE categories != 'N/A' AND pageCount != 0 AND TRIM(categories) != 'N/A' GROUP BY categories;",
+
       "11. Retrieve Books with More than 3 Authors":
           """SELECT booktitle, imageLinks, bookauthors FROM books
             WHERE LENGTH(bookauthors) - LENGTH(REPLACE(bookauthors, ',', '')) >= 3;""",
+
       "12. Books with Ratings Count Greater Than the Average":
           """SELECT booktitle, imageLinks, ratingsCount FROM books
             WHERE ratingsCount > (SELECT AVG(ratingsCount) FROM books);""",
-      "13. Books with the Same Author Published in the Same Year":
-          """SELECT bookauthors, year, COUNT(*) AS book_count FROM books WHERE bookauthors != 'N/A'
-            GROUP BY bookauthors, year HAVING book_count > 1;""",
+
+      "13. Author has released multiple books in the same year":
+          """SELECT
+              bookauthors,
+              year,
+              COUNT(*) AS book_count,
+              GROUP_CONCAT(booktitle, ' ') AS book_titles
+            FROM books
+            WHERE bookauthors != 'N/A'
+            GROUP BY bookauthors, year
+            HAVING book_count > 1;""",
+
       "14. Books with a Specific Keyword in the Title": "", # Placeholder for dynamic query
 
       "15. Year with the Highest Average Book Price":
           """SELECT year, AVG(amountretailPrice) AS avg_price FROM books
             GROUP BY year ORDER BY avg_price DESC LIMIT 1;""",
+
       "16. Count Authors Who Published 3 Consecutive Years":
           """SELECT bookauthors, COUNT(DISTINCT year) AS consecutive_years FROM books WHERE bookauthors != 'N/A'
-            GROUP BY bookauthors HAVING consecutive_years >= 3;""",
+            GROUP BY bookauthors HAVING consecutive_years >= 3 ORDER BY consecutive_years ASC;""",
+
       "17. Authors with Books Published in the Same Year by Different Publishers":
-          """SELECT bookauthors, year, COUNT(DISTINCT publisher) AS publisher_count FROM books  WHERE bookauthors != 'N/A'
-            GROUP BY bookauthors, year HAVING publisher_count > 1;""",
+          """SELECT bookauthors, year, COUNT(DISTINCT publisher) AS publisher_count, GROUP_CONCAT(DISTINCT publisher, ' ') AS publishers
+          FROM books WHERE bookauthors != 'N/A' AND publisher != 'N/A' GROUP BY bookauthors, year HAVING publisher_count > 1;""",
+
       "18. Average Retail Price of eBooks and Physical Books":
           "SELECT AVG(CASE WHEN isEbook = 1 THEN amountretailPrice ELSE NULL END) AS avg_ebook_price, AVG(CASE WHEN isEbook = 0 THEN amountretailPrice ELSE NULL END) AS avg_physical_price FROM books;",
-      "19. Identify Books That Are Outliers":
-          """SELECT booktitle, imageLinks, amountretailPrice FROM books
-            WHERE amountretailPrice > (SELECT AVG(amountretailPrice) + 3 * STDDEV(amountretailPrice) FROM books)
-            OR amountretailPrice < (SELECT AVG(amountretailPrice) - 3 * STDDEV(amountretailPrice) FROM books);""",
+
+      "19. Find books with an averageRating that is more than two standard deviations away from the average rating of all books":
+          """WITH stats AS (SELECT AVG(averageRating) AS mean_rating, STDDEV(averageRating) AS std_dev FROM books)
+                SELECT booktitle, imageLinks, averageRating
+                FROM books, stats
+                WHERE ABS(averageRating - stats.mean_rating) > 2 * stats.std_dev;""",
+
       "20. Publisher with the Highest Average Rating (More than 10 Books)":
-          """SELECT publisher, AVG(averageRating) AS avg_rating FROM books
-            GROUP BY publisher HAVING COUNT(*) > 10 ORDER BY avg_rating DESC LIMIT 1;"""
+          """SELECT
+                publisher,
+                AVG(averageRating) AS avg_rating,
+                COUNT(*) AS book_count,
+                GROUP_CONCAT(booktitle ORDER BY booktitle) AS book_titles
+            FROM books
+            GROUP BY publisher
+            HAVING COUNT(*) > 10
+            ORDER BY avg_rating DESC
+            LIMIT 1;"""
+
+          # """SELECT publisher, AVG(averageRating) AS avg_rating FROM books
+          #   GROUP BY publisher HAVING COUNT(*) > 10 ORDER BY avg_rating DESC LIMIT 1;"""
   }
 
 
@@ -396,13 +439,21 @@ elif menu == "**📊 Data Analysis**":
 
               elif selected_question == "6. List Books with Discounts Greater than 20%":
                     # Handle missing images by providing a placeholder if the image URL is 'N/A'
-                    data['book'] = data['imageLinks'].apply(lambda x: f'<img src="{x}" width="100" />' if x != 'N/A' else '<img src="https://via.placeholder.com/150" width="100" />')
-                    # Format the discount_percentage column to include the '%' symbol
-                    data['discount_percentage'] = data['discount_percentage'].apply(lambda x: f"{x}%")
-                    # Create an HTML table with book title, page count, year, and book cover image
+                    data['book'] = data['imageLinks'].apply(
+                        lambda x: f'<img src="{x}" width="100" />' if x != 'N/A' else
+                                  '<img src="https://via.placeholder.com/150" width="100" />'
+                    )
+
+                    # Ensure discount_percentage is numeric
+                    data['discount_percentage'] = pd.to_numeric(data['discount_percentage'], errors='coerce').fillna(0)
+
+                    # Format discount as a percentage with % symbol
+                    data['discount_percentage'] = data['discount_percentage'].apply(lambda x: f"{x:.0f}%")
+
+                    # Create an HTML table with book title, discount, and book cover image
                     html_table = data[['book', 'booktitle', 'discount_percentage']].to_html(escape=False, index=False)
 
-                    # Display the HTML table with images
+                    # Display the table
                     st.markdown(html_table, unsafe_allow_html=True)
 
 
@@ -425,28 +476,40 @@ elif menu == "**📊 Data Analysis**":
 
               elif selected_question == "12. Books with Ratings Count Greater Than the Average":
                     # Handle missing images by providing a placeholder if the image URL is 'N/A'
-                    data['book'] = data['imageLinks'].apply(lambda x: f'<img src="{x}" width="100" />' if x != 'N/A' else '<img src="https://via.placeholder.com/150" width="100" />')
-                    # Ensure ratingsCount is treated as an integer before sorting
-                    data['ratingsCount'] = data['ratingsCount'].astype(int)
+                    data['book'] = data['imageLinks'].apply(
+                        lambda x: f'<img src="{x}" width="100" />' if x != 'N/A' else
+                                  '<img src="https://via.placeholder.com/150" width="100" />'
+                    )
 
-                    # Sort ratingsCount in descending order (highest ratings first)
+                    # Convert ratingsCount to integer (handling potential issues)
+                    data['ratingsCount'] = pd.to_numeric(data['ratingsCount'], errors='coerce').fillna(0).astype(int)
+
+                    # Calculate the average ratingsCount
+                    avg_rating_count = data['ratingsCount'].mean()
+
+                    # Filter books with ratingsCount > average
+                    data = data[data['ratingsCount'] > avg_rating_count]
+
+                    # Sort by ratingsCount in descending order (highest ratings first)
                     data = data.sort_values(by='ratingsCount', ascending=False)
 
-                    # Convert ratingsCount to gold stars
+                    # Convert ratingsCount to gold stars (max 5 stars)
                     data['ratingsCount'] = data['ratingsCount'].apply(
-                        lambda x: ''.join(
-                            ['<span style="color: gold;">★</span>' for _ in range(min(x, 5))]
-                        )
+                        lambda x: ''.join(['<span style="color: gold;">★</span>' for _ in range(min(x, 5))])
                     )
+
+                    # Create HTML table
                     html_table = data[['book', 'booktitle', 'ratingsCount']].to_html(escape=False, index=False)
-                    # Display the HTML table with images
+
+                    # Display the table
                     st.markdown(html_table, unsafe_allow_html=True)
 
-              elif selected_question == "19. Identify Books That Are Outliers":
-                    # Handle missing images by providing a placeholder if the image URL is 'N/A'
-                    data['amountretailPrice'] = data['amountretailPrice'].apply(lambda x: f"{x:.2f}")
+              elif selected_question == "19. Find books with an averageRating that is more than two standard deviations away from the average rating of all books":
+
                     data['book'] = data['imageLinks'].apply(lambda x: f'<img src="{x}" width="100" />' if x != 'N/A' else '<img src="https://via.placeholder.com/150" width="100" />')
-                    html_table = data[['book', 'booktitle', 'amountretailPrice']].to_html(escape=False, index=False)
+
+
+                    html_table = data[['book', 'booktitle', 'averageRating']].to_html(escape=False, index=False)
 
                     # Display the HTML table with images
                     st.markdown(html_table, unsafe_allow_html=True)
@@ -476,4 +539,4 @@ public_url = ngrok.connect(8501)
 print(f"Streamlit app is live at: {public_url}")
 
 # Run the Streamlit app
-!streamlit run book.py &>/dev/null&
+!streamlit run books.py &>/dev/null&
